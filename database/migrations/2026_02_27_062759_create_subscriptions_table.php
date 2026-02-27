@@ -22,8 +22,8 @@ return new class extends Migration
             $table->string('currency', 3)->default('BDT');
 
             // Dates
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
             $table->timestamp('trial_ends_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->timestamp('renewed_at')->nullable();

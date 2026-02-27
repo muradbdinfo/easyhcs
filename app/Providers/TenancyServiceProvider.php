@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 namespace App\Providers;
-
+use App\Models\System\Tenant;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -92,18 +92,17 @@ class TenancyServiceProvider extends ServiceProvider
         ];
     }
 
-    public function register()
-    {
-        //
-    }
+public function register()
+{
+    // nothing here
+}
 
-    public function boot()
-    {
-        $this->bootEvents();
-        $this->mapRoutes();
-
-        $this->makeTenancyMiddlewareHighestPriority();
-    }
+public function boot()
+{
+    $this->bootEvents();
+    // $this->mapRoutes();
+    $this->makeTenancyMiddlewareHighestPriority();
+}
 
     protected function bootEvents()
     {

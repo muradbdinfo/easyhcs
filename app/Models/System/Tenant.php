@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
+// use App\Models\System\Tenant;
 use Stancl\Tenancy\Database\Models\Domain;
-use App\Models\System\Tenant;
+
 
 return [
 
-    'tenant_model' => Tenant::class,
+   'tenant_model' => 'App\Models\System\Tenant',
     'id_generator' => Stancl\Tenancy\UUIDGenerator::class,
     'domain_model' => Domain::class,
 
