@@ -24,6 +24,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
 
+        $middleware->validateCsrfTokens(except: [
+        'install/*',
+    ]);
+
+    // Add CheckInstalled globally
+      $middleware->prepend(\App\Http\Middleware\CheckInstalled::class);
+
+
         // Inertia share middleware
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
