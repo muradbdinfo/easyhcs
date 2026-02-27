@@ -45,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'super-admin'    => \App\Http\Middleware\SuperAdminMiddleware::class,
             'module'         => \App\Http\Middleware\CheckModuleEnabled::class,
+            'two-factor'          => \App\Http\Middleware\RequiresTwoFactor::class,
             'tenancy'        => \App\Http\Middleware\InitializeTenancyByDomain::class,
             'tenant.auth'    => \App\Http\Middleware\TenantAuthMiddleware::class,
         ]);

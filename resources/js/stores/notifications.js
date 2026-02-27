@@ -1,86 +1,82 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import axios from 'axios';
+import { defineStore } from 'pinia'
+import axios from 'axios'
 
-export const useNotificationStore = defineStore('notifications', () => {
-    // ─── State ────────────────────────────────────────────────────
-    const notifications = ref([]);
-    const unreadCount   = ref(0);
-    const loading       = ref(false);
-    let   pollInterval  = null;
+export const useNotificationsStore = defineStore('notifications', {
+    state: () => ({
+        notifications : [],
+        unreadCount   : 0,
+        loading       : false,
+        /** setInterval handle — kept to allow cleanup on logout */
+        _pollTimer    : null,
+    }),
 
-    // ─── Getters ──────────────────────────────────────────────────
-    const unreadNotifications = computed(() =>
-        notifications.value.filter(n => !n.read_at)
-    );
+    getters: {
+        hasUnread : (state) => state.unreadCount > 0,
+        unreadList: (state) => state.notifications.filter(n => !n.read_at),
+    },
 
-    const recentNotifications = computed(() =>
-        notifications.value.slice(0, 10)
-    );
-
-    // ─── Actions ──────────────────────────────────────────────────
-
-    async function fetchNotifications() {
-        loading.value = true;
-        try {
-            const { data } = await axios.get(route('api.notifications.index'));
-            notifications.value = data.data ?? [];
-            unreadCount.value   = data.unread_count ?? 0;
-        } catch (e) {
-            console.error('Failed to fetch notifications', e);
-        } finally {
-            loading.value = false;
-        }
-    }
-
-    async function markAsRead(id) {
-        try {
-            await axios.post(route('notifications.read', { id }));
-            const n = notifications.value.find(n => n.id === id);
-            if (n) {
-                n.read_at = new Date().toISOString();
-                unreadCount.value = Math.max(0, unreadCount.value - 1);
+    actions: {
+        /** Fetch the latest notifications from the API */
+        async fetchNotifications() {
+            if (this.loading) return
+            this.loading = true
+            try {
+                const { data } = await axios.get('/api/notifications')
+                this.notifications = data.data        ?? []
+                this.unreadCount   = data.unread_count ?? 0
+            } catch (_) {
+                // Silently fail — polling will retry in 30s
+            } finally {
+                this.loading = false
             }
-        } catch (e) {
-            console.error('Failed to mark notification as read', e);
-        }
-    }
+        },
 
-    async function markAllRead() {
-        try {
-            await axios.post(route('notifications.read-all'));
-            notifications.value.forEach(n => {
-                n.read_at = new Date().toISOString();
-            });
-            unreadCount.value = 0;
-        } catch (e) {
-            console.error('Failed to mark all as read', e);
-        }
-    }
+        /** Mark a single notification as read */
+        async markAsRead(id) {
+            try {
+                await axios.patch(`/api/notifications/${id}/read`)
+                const notif = this.notifications.find(n => n.id === id)
+                if (notif && !notif.read_at) {
+                    notif.read_at = new Date().toISOString()
+                    this.unreadCount = Math.max(0, this.unreadCount - 1)
+                }
+            } catch (_) {}
+        },
 
-    function startPolling(intervalMs = 30000) {
-        if (pollInterval) return; // already polling
-        fetchNotifications();
-        pollInterval = setInterval(fetchNotifications, intervalMs);
-    }
+        /** Mark all notifications as read */
+        async markAllRead() {
+            try {
+                await axios.post('/api/notifications/read-all')
+                this.notifications.forEach(n => {
+                    n.read_at = n.read_at ?? new Date().toISOString()
+                })
+                this.unreadCount = 0
+            } catch (_) {}
+        },
 
-    function stopPolling() {
-        if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-        }
-    }
+        /** Delete a single notification */
+        async deleteNotification(id) {
+            try {
+                await axios.delete(`/api/notifications/${id}`)
+                this.notifications = this.notifications.filter(n => n.id !== id)
+                // Recalculate unread
+                this.unreadCount = this.notifications.filter(n => !n.read_at).length
+            } catch (_) {}
+        },
 
-    return {
-        notifications,
-        unreadCount,
-        loading,
-        unreadNotifications,
-        recentNotifications,
-        fetchNotifications,
-        markAsRead,
-        markAllRead,
-        startPolling,
-        stopPolling,
-    };
-});
+        /** Start polling every 30 seconds. Safe to call multiple times. */
+        startPolling() {
+            if (this._pollTimer) return
+            this.fetchNotifications()
+            this._pollTimer = setInterval(() => this.fetchNotifications(), 30_000)
+        },
+
+        /** Stop polling (called on layout unmount / logout) */
+        stopPolling() {
+            if (this._pollTimer) {
+                clearInterval(this._pollTimer)
+                this._pollTimer = null
+            }
+        },
+    },
+})

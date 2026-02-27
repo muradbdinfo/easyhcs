@@ -1,28 +1,28 @@
-<script setup>
-// AuthLayout: used by /login, /register, /install — no nav, no auth required
-</script>
-
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+    <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-md">
+            <!-- Logo -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 shadow-lg mb-4">
+                    <span class="text-white font-bold text-2xl">H</span>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">EasyHCS</h1>
+                <p class="text-sm text-gray-500 mt-1">Easy Healthcare Solutions</p>
+            </div>
 
-    <!-- Top bar (logo only) -->
-    <header class="flex items-center justify-center py-8">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-          <span class="text-white font-black text-lg">H</span>
+            <!-- Card -->
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+                <RouterView />
+            </div>
+
+            <!-- Footer -->
+            <p class="text-center text-xs text-gray-400 mt-6">
+                © {{ new Date().getFullYear() }} EasyHCS. All rights reserved.
+            </p>
         </div>
-        <span class="text-2xl font-bold text-gray-800">EasyHCS</span>
-      </div>
-    </header>
-
-    <!-- Page content (login card, install wizard, etc.) -->
-    <main class="flex-1 flex items-start justify-center px-4 pb-12">
-      <slot />
-    </main>
-
-    <!-- Footer -->
-    <footer class="text-center text-xs text-gray-400 py-4">
-      © {{ new Date().getFullYear() }} Easy Healthcare Solutions. All rights reserved.
-    </footer>
-  </div>
+    </div>
 </template>
+
+<script setup>
+import { RouterView } from 'vue-router'
+</script>
