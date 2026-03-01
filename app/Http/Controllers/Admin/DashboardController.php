@@ -3,12 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\JsonResponse;
+use App\Services\Admin\DashboardService;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index(): JsonResponse
+    public function __construct(private DashboardService $service) {}
+
+    public function __invoke()
     {
-        return response()->json(['message' => 'Admin dashboard — P8 pending.']);
+        return Inertia::render('Admin/Dashboard', [
+            'metrics'      => $this->service->getMetrics(),
+            'revenueChart' => $this->service->getRevenueChart(),
+            'recentTenants' => $this->service->getRecentTenants(),
+            'recentTransactions' => $this->service->getRecentTransactions(),
+        ]);
     }
 }

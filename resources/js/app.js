@@ -26,31 +26,28 @@ if (csrfMeta) {
 }
 
 // Global 401 interceptor — if session expires mid-session, send to login
+// REPLACE the entire interceptor
 axios.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {        // ← add async here
         const status = error.response?.status
 
-        // 401 = session expired / unauthenticated
         if (status === 401) {
-            // Reset auth state without calling the server again
             import('@/stores/auth').then(({ useAuthStore }) => {
                 const auth = useAuthStore()
                 auth.$reset()
                 auth.initialized = true
             })
-            // Only redirect if we're not already on an auth page
             const path = window.location.pathname
             if (!path.startsWith('/login') && !path.startsWith('/install')) {
                 window.location.href = `/login?redirect=${encodeURIComponent(path)}`
             }
         }
 
-        // 419 = CSRF token mismatch — refresh the cookie and retry once
-        if (status === 419) {
-            return axios.get('/sanctum/csrf-cookie').then(() => {
-                return axios.request(error.config)
-            })
+        if (status === 419 && !error.config._retry) {
+            error.config._retry = true
+            await axios.get('/sanctum/csrf-cookie')
+            return axios.request(error.config)
         }
 
         return Promise.reject(error)
@@ -103,6 +100,7 @@ setupGuards(router)
 // happens after fetchUser() has resolved.
 //
 ;(async () => {
+    await axios.get('/sanctum/csrf-cookie')
     const { useAuthStore } = await import('@/stores/auth')
     const auth = useAuthStore()
 

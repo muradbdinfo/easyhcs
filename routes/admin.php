@@ -8,67 +8,72 @@ use App\Http\Controllers\Admin\SubscriptionController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\Admin\LicenseController;
-use App\Http\Controllers\Admin\AdminSettingsController;
-use App\Http\Controllers\Admin\AdminUserController;
-use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\HealthController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\RefundController;
 
-/*
-|--------------------------------------------------------------------------
-| Admin Routes — SuperAdmin Panel Only
-| Middleware: auth, super-admin
-| Prefix: /admin
-|--------------------------------------------------------------------------
-*/
 
 Route::middleware(['auth', 'super-admin'])->prefix('admin')->name('admin.')->group(function () {
 
     // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/', DashboardController::class)->name('dashboard');
 
     // Tenants
-    Route::resource('tenants', TenantController::class);
-    Route::post('tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->name('tenants.suspend');
-    Route::post('tenants/{tenant}/activate', [TenantController::class, 'activate'])->name('tenants.activate');
-    Route::post('tenants/{tenant}/impersonate', [TenantController::class, 'impersonate'])->name('tenants.impersonate');
+    Route::get('/tenants',                TenantController::class . '@index')->name('tenants.index');
+    Route::get('/tenants/create',         TenantController::class . '@create')->name('tenants.create');
+    Route::post('/tenants',               TenantController::class . '@store')->name('tenants.store');
+    Route::get('/tenants/{tenant}',       TenantController::class . '@show')->name('tenants.show');
+    Route::patch('/tenants/{tenant}/suspend',   TenantController::class . '@suspend')->name('tenants.suspend');
+    Route::patch('/tenants/{tenant}/activate',  TenantController::class . '@activate')->name('tenants.activate');
+    Route::delete('/tenants/{tenant}',    TenantController::class . '@destroy')->name('tenants.destroy');
+    Route::post('/tenants/{tenant}/impersonate', TenantController::class . '@impersonate')->name('tenants.impersonate');
 
     // Plans
-    Route::resource('plans', PlanController::class);
-    Route::post('plans/{plan}/toggle', [PlanController::class, 'toggle'])->name('plans.toggle');
+    Route::get('/plans',           PlanController::class . '@index')->name('plans.index');
+    Route::post('/plans',          PlanController::class . '@store')->name('plans.store');
+    Route::put('/plans/{plan}',    PlanController::class . '@update')->name('plans.update');
+    Route::delete('/plans/{plan}', PlanController::class . '@destroy')->name('plans.destroy');
 
     // Subscriptions
-    Route::resource('subscriptions', SubscriptionController::class)->only(['index', 'show']);
-    Route::post('subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
-    Route::post('subscriptions/{subscription}/renew', [SubscriptionController::class, 'renew'])->name('subscriptions.renew');
+    Route::get('/subscriptions',                        SubscriptionController::class . '@index')->name('subscriptions.index');
+    Route::get('/subscriptions/{subscription}',         SubscriptionController::class . '@show')->name('subscriptions.show');
+    Route::patch('/subscriptions/{subscription}/cancel', SubscriptionController::class . '@cancel')->name('subscriptions.cancel');
 
     // Transactions
-    Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
-    Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
-    Route::post('transactions/{transaction}/refund', [TransactionController::class, 'refund'])->name('transactions.refund');
+    Route::get('/transactions', TransactionController::class . '@index')->name('transactions.index');
+
+    // Refunds
+    Route::get('/refunds',                TransactionController::class . '@refunds')->name('refunds.index');
+    Route::post('/transactions/{transaction}/refund', TransactionController::class . '@processRefund')->name('transactions.refund');
 
     // Payment Gateways
-    Route::resource('gateways', PaymentGatewayController::class)->except(['create', 'store', 'destroy']);
-    Route::post('gateways/{gateway}/toggle', [PaymentGatewayController::class, 'toggle'])->name('gateways.toggle');
-    Route::post('gateways/{gateway}/set-default', [PaymentGatewayController::class, 'setDefault'])->name('gateways.set-default');
+    Route::get('/gateways',          PaymentGatewayController::class . '@index')->name('gateways.index');
+    Route::post('/gateways',         PaymentGatewayController::class . '@store')->name('gateways.store');
+    Route::put('/gateways/{gateway}',    PaymentGatewayController::class . '@update')->name('gateways.update');
+    Route::patch('/gateways/{gateway}/toggle', PaymentGatewayController::class . '@toggle')->name('gateways.toggle');
 
     // Licenses
-    Route::resource('licenses', LicenseController::class);
-    Route::post('licenses/{license}/revoke', [LicenseController::class, 'revoke'])->name('licenses.revoke');
-    Route::post('licenses/generate-batch', [LicenseController::class, 'generateBatch'])->name('licenses.generate-batch');
+    Route::get('/licenses',              LicenseController::class . '@index')->name('licenses.index');
+    Route::post('/licenses',             LicenseController::class . '@store')->name('licenses.store');
+    Route::patch('/licenses/{license}/revoke', LicenseController::class . '@revoke')->name('licenses.revoke');
 
-    // Admin Settings
-    Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
-    Route::put('settings', [AdminSettingsController::class, 'update'])->name('settings.update');
+    // Settings
+    Route::get('/settings',    SettingsController::class . '@index')->name('settings.index');
+    Route::post('/settings',   SettingsController::class . '@update')->name('settings.update');
 
     // Admin Users
-    Route::resource('admin-users', AdminUserController::class);
+    Route::get('/admin-users',               AdminUserController::class . '@index')->name('admin-users.index');
+    Route::post('/admin-users',              AdminUserController::class . '@store')->name('admin-users.store');
+    Route::put('/admin-users/{user}',        AdminUserController::class . '@update')->name('admin-users.update');
+    Route::delete('/admin-users/{user}',     AdminUserController::class . '@destroy')->name('admin-users.destroy');
 
     // Audit Log
-    Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
+    Route::get('/audit-log', AuditLogController::class . '@index')->name('audit-log.index');
 
-    // Health Check
-    Route::get('health', [HealthController::class, 'index'])->name('health.index');
-
-    // Redirect /admin → /admin/dashboard
-    Route::redirect('/', '/admin/dashboard');
+    // Health
+    Route::get('/health', HealthController::class . '@index')->name('health.index');
+    Route::post('/health/cache-clear', HealthController::class . '@clearCache')->name('health.cache-clear');
+    Route::post('/health/queue-restart', HealthController::class . '@restartQueue')->name('health.queue-restart');
 });

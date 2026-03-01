@@ -96,24 +96,16 @@ export const useAuthStore = defineStore('auth', {
          * Throws on validation error (422) — caller shows field errors.
          * Throws on credentials error (401/419) — caller shows message.
          */
-        async login(credentials) {
-            // Step 1: Obtain CSRF cookie (required for Sanctum SPA)
-            await axios.get('/sanctum/csrf-cookie')
-
-            // Step 2: Post credentials
-            const { data } = await axios.post('/login', credentials)
-
-            // Step 3: If 2FA is pending, do NOT populate user yet
-            if (data.two_factor_required) {
-                return data
-            }
-
-            // Step 4: Populate state
-            this.user = data.user
-            await this.refreshPermissions()
-
-            return data
-        },
+  async login(credentials) {
+    await axios.get('/sanctum/csrf-cookie')
+    const { data } = await axios.post('/api/login', credentials)
+    if (data.two_factor_required) return data
+    this.user = data.user
+    this.initialized = true          // ← add this
+    await this.refreshPermissions()
+    await axios.get('/sanctum/csrf-cookie')  // ← refresh again after login
+    return data
+},
 
         // ── TWO-FACTOR AUTHENTICATION ─────────────────────────────────────────
         /**
@@ -196,7 +188,7 @@ export const useAuthStore = defineStore('auth', {
          */
         async logout() {
             try {
-                await axios.post('/logout')
+               await axios.post('/api/logout')
             } catch (_) {
                 // Ignore errors — we reset regardless
             } finally {

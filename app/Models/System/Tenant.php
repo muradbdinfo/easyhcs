@@ -1,93 +1,79 @@
 <?php
 
-declare(strict_types=1);
+namespace App\Models\System;
 
-// use App\Models\System\Tenant;
-use Stancl\Tenancy\Database\Models\Domain;
+use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
+use Stancl\Tenancy\Contracts\TenantWithDatabase;
+use Stancl\Tenancy\Database\Concerns\HasDatabase;
+use Stancl\Tenancy\Database\Concerns\HasDomains;
 
+class Tenant extends BaseTenant implements TenantWithDatabase
+{
+    use HasDatabase, HasDomains;
 
-return [
+    protected $connection = 'mysql'; // system DB
 
-   'tenant_model' => 'App\Models\System\Tenant',
-    'id_generator' => Stancl\Tenancy\UUIDGenerator::class,
-    'domain_model' => Domain::class,
-
-    /**
-     * Use PathTenantFinder in XAMPP dev (avoids hosts file per tenant).
-     * Switch to SubdomainTenantFinder on cPanel/VPS.
-     *
-     * Path: http://easyhcs.local/demo/dashboard  → tenant slug = demo
-     * Subdomain: http://demo.easyhcs.local/dashboard → tenant = demo
-     */
-    'tenant_finder' => Stancl\Tenancy\TenantFinders\DomainTenantFinder::class,
-    // For XAMPP path-based dev, change to:
-    // 'tenant_finder' => Stancl\Tenancy\TenantFinders\PathTenantFinder::class,
-
-    'central_domains' => [
-        env('CENTRAL_DOMAIN', 'easyhcs.local'),
-    ],
-
-    'bootstrappers' => [
-        Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper::class,
-        Stancl\Tenancy\Bootstrappers\CacheTenancyBootstrapper::class,
-        Stancl\Tenancy\Bootstrappers\FilesystemTenancyBootstrapper::class,
-        Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper::class,
-    ],
-
-    'database' => [
-        'central_connection' => env('DB_CONNECTION', 'mysql'),
-        'tenant_connection'  => 'tenant',
-        'prefix'             => env('TENANCY_DATABASE_PREFIX', 'tenant_'),
-        'suffix'             => '',
-        'managers'           => [
-            'sqlite' => Stancl\Tenancy\Database\DatabaseManager::class,
-            'mysql'  => Stancl\Tenancy\Database\DatabaseManager::class,
-        ],
-    ],
-
-    'cache' => [
-        'tag_base' => 'tenant',  // cache key prefix per tenant
-    ],
-
-    'filesystem' => [
-        'suffix_base'  => 'tenant',
-        'disks'        => ['local', 'public'],
-        'root_override' => [
-            'local' => '%storage_path%/app/',
-        ],
-        'suffix_storage_path' => true,
-        'asset_helper_tenancy' => false,
-    ],
-
-    'redis' => [
-        'prefix_base' => 'tenant',
-        'prefixed_connections' => ['default'],
-    ],
-
-    'features' => [
-        // Stancl\Tenancy\Features\UserImpersonation::class,
-        // Stancl\Tenancy\Features\TelescopeTags::class,
-        Stancl\Tenancy\Features\UniversalRoutes::class,
-        // Stancl\Tenancy\Features\TenantConfig::class,
-        // Stancl\Tenancy\Features\CrossDomainRedirect::class,
-        // Stancl\Tenancy\Features\ViteBundler::class,
-    ],
-
-    'migration_parameters' => [
-        '--force'   => true,
-        '--path'    => database_path('migrations/tenant'),
-        '--realpath' => true,
-    ],
-
-    'seeder_parameters' => [
-        '--class' => 'TenantDatabaseSeeder',
-        '--force' => true,
-    ],
-
-    'queue_actions' => [
-        Stancl\Tenancy\Jobs\CreateDatabase::class,
-        Stancl\Tenancy\Jobs\MigrateDatabase::class,
-        Stancl\Tenancy\Jobs\SeedDatabase::class,
-        Stancl\Tenancy\Jobs\DeleteDatabase::class,
-    ],
+protected $fillable = [
+    'id', 'business_name', 'contact_email', 'contact_phone',
+    'address', 'plan_id', 'plan_status', 'trial_ends_at',
+    'plan_expires_at', 'is_active', 'modules_enabled', 'data',
 ];
+
+protected $casts = [
+    'data'           => 'array',
+    'meta'           => 'array',
+    'modules_enabled'=> 'array',
+    'trial_ends_at'  => 'datetime',
+    'plan_expires_at'=> 'datetime',
+];
+
+public static function getCustomColumns(): array
+{
+    return [
+        'id', 'business_name', 'business_type', 'contact_email', 'contact_phone',
+        'address', 'city', 'country', 'timezone', 'currency', 'logo_path',
+        'plan_id', 'plan_status', 'trial_ends_at', 'plan_expires_at',
+        'owner_user_id', 'is_active', 'email_verified', 'activated_at',
+        'suspended_at', 'suspension_reason', 'license_key',
+        'license_failure_count', 'license_last_check', 'modules_enabled',
+        'user_count', 'patient_count', 'storage_used_mb', 'meta', 'deleted_at',
+    ];
+}
+
+    public function plan()
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    public function subscription()
+    {
+        return $this->hasOne(Subscription::class)->latestOfMany();
+    }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function subscriptionInvoices()
+    {
+        return $this->hasMany(SubscriptionInvoice::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    public function licenses()
+    {
+        return $this->hasMany(License::class);
+    }
+
+    public function scopeActive($q)     { return $q->where('status', 'active'); }
+    public function scopeSuspended($q)  { return $q->where('status', 'suspended'); }
+
+    public function getNameAttribute()   { return $this->business_name; }
+public function getEmailAttribute()  { return $this->contact_email; }
+public function getStatusAttribute() { return $this->plan_status; }
+}
