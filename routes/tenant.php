@@ -1,38 +1,97 @@
 <?php
 
+use App\Http\Controllers\Tenant\AuditLogController;
+use App\Http\Controllers\Tenant\AuthController;
+use App\Http\Controllers\Tenant\BillingController;
+use App\Http\Controllers\Tenant\DashboardController;
+use App\Http\Controllers\Tenant\NotificationController;
+use App\Http\Controllers\Tenant\PatientController;
+use App\Http\Controllers\Tenant\SettingController;
+use App\Http\Controllers\Tenant\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | Tenant Routes
-| Middleware: tenancy, auth, verified
 |--------------------------------------------------------------------------
-| All routes here run inside tenant context.
-| The tenancy bootstrapper has already switched the DB connection.
-|--------------------------------------------------------------------------
+| All routes run inside tenant context (tenancy bootstrapper has already
+| switched the DB connection).
+|
+| Public (within tenant context): login / logout
+| Protected:                       auth + verified + tenant.auth
 */
 
-Route::middleware(['tenancy', 'auth', 'verified'])->group(function () {
+// ─── Auth — public within tenant context ────────────────────────────────────
+Route::middleware(['tenancy', 'web'])->group(function () {
+    Route::post('/tenant/login',  [AuthController::class, 'login'])->name('tenant.login');
+    Route::post('/tenant/logout', [AuthController::class, 'logout'])->name('tenant.logout');
+});
 
-    // Dashboard (always available)
-    Route::get('/dashboard', [\App\Http\Controllers\Tenant\DashboardController::class, 'index'])
-        ->name('dashboard');
+// ─── Authenticated Tenant Routes ─────────────────────────────────────────────
+Route::middleware(['tenancy', 'web', 'auth', 'verified', 'tenant.auth'])->group(function () {
 
-    // Notifications
-    Route::get('/notifications', [\App\Http\Controllers\Tenant\NotificationController::class, 'index'])
-        ->name('notifications.index');
-    Route::post('/notifications/{id}/read', [\App\Http\Controllers\Tenant\NotificationController::class, 'markRead'])
-        ->name('notifications.read');
-    Route::post('/notifications/read-all', [\App\Http\Controllers\Tenant\NotificationController::class, 'markAllRead'])
-        ->name('notifications.read-all');
+    // ── Auth / Profile ────────────────────────────────────────────────────────
+    Route::get('/me',                [AuthController::class, 'me'])->name('tenant.me');
+    Route::put('/profile',           [AuthController::class, 'updateProfile'])->name('tenant.profile.update');
+    Route::put('/profile/password',  [AuthController::class, 'updatePassword'])->name('tenant.password.update');
 
-    // Billing portal (tenant billing — SaaS subscription)
-    Route::get('/billing', [\App\Http\Controllers\Tenant\BillingController::class, 'index'])
-        ->name('billing.index');
-    Route::post('/billing/subscribe', [\App\Http\Controllers\Tenant\BillingController::class, 'subscribe'])
-        ->name('billing.subscribe');
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // ─── Pharmacy Module ──────────────────────────────────────────
+    // ── Notifications ─────────────────────────────────────────────────────────
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/',                     [NotificationController::class, 'index'])->name('index');
+        Route::get('/unread-count',         [NotificationController::class, 'unreadCount'])->name('unread-count');
+        Route::patch('/{id}/read',          [NotificationController::class, 'markAsRead'])->name('mark-read');
+        Route::post('/mark-all-read',       [NotificationController::class, 'markAllRead'])->name('mark-all-read');
+        Route::delete('/{id}',              [NotificationController::class, 'destroy'])->name('destroy');
+    });
+
+    // ── Billing & Plan ────────────────────────────────────────────────────────
+    Route::prefix('billing')->name('billing.')->group(function () {
+        Route::get('/',         [BillingController::class, 'index'])->name('index');
+        Route::post('/subscribe', [BillingController::class, 'subscribe'])->name('subscribe');
+    });
+
+    // ── Audit Log ─────────────────────────────────────────────────────────────
+    Route::get('/audit-log', [\App\Http\Controllers\Tenant\Core\AuditLogController::class, 'index'])
+        ->middleware('permission:view-audit-log')
+        ->name('audit-log');
+
+    // ─── Core Module (always enabled) ────────────────────────────────────────
+
+    // Patients
+    Route::prefix('patients')->name('patients.')->group(function () {
+        Route::get('/',             [\App\Http\Controllers\Tenant\Core\PatientController::class, 'index'])->name('index');
+        Route::post('/',            [\App\Http\Controllers\Tenant\Core\PatientController::class, 'store'])->name('store');
+        Route::get('/search',       [\App\Http\Controllers\Tenant\Core\PatientController::class, 'search'])->name('search');
+        Route::get('/{patient}',    [\App\Http\Controllers\Tenant\Core\PatientController::class, 'show'])->name('show');
+        Route::put('/{patient}',    [\App\Http\Controllers\Tenant\Core\PatientController::class, 'update'])->name('update');
+        Route::delete('/{patient}', [\App\Http\Controllers\Tenant\Core\PatientController::class, 'destroy'])->name('destroy');
+    });
+
+    // Users
+    Route::prefix('users')->name('users.')->middleware('permission:manage-users')->group(function () {
+        Route::get('/',                       [\App\Http\Controllers\Tenant\Core\UserController::class, 'index'])->name('index');
+        Route::post('/',                      [\App\Http\Controllers\Tenant\Core\UserController::class, 'store'])->name('store');
+        Route::get('/{user}',                 [\App\Http\Controllers\Tenant\Core\UserController::class, 'show'])->name('show');
+        Route::put('/{user}',                 [\App\Http\Controllers\Tenant\Core\UserController::class, 'update'])->name('update');
+        Route::delete('/{user}',              [\App\Http\Controllers\Tenant\Core\UserController::class, 'destroy'])->name('destroy');
+        Route::patch('/{user}/toggle-status', [\App\Http\Controllers\Tenant\Core\UserController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    // Roles
+    Route::resource('roles', \App\Http\Controllers\Tenant\Core\RoleController::class)
+        ->middleware('permission:manage-roles');
+
+    // Settings
+    Route::prefix('settings')->name('settings.')->middleware('permission:manage-settings')->group(function () {
+        Route::get('/',       [\App\Http\Controllers\Tenant\Core\SettingsController::class, 'index'])->name('index');
+        Route::put('/',       [\App\Http\Controllers\Tenant\Core\SettingsController::class, 'update'])->name('update');
+        Route::post('/logo',  [SettingController::class, 'uploadLogo'])->name('logo');
+    });
+
+    // ─── Pharmacy Module ──────────────────────────────────────────────────────
     Route::middleware(['module:pharmacy'])->prefix('pharmacy')->name('pharmacy.')->group(function () {
         // POS
         Route::get('/pos', [\App\Http\Controllers\Tenant\Pharmacy\PosController::class, 'index'])
@@ -93,7 +152,7 @@ Route::middleware(['tenancy', 'auth', 'verified'])->group(function () {
             ->middleware('permission:pharmacy-stock-adjust')->name('stock-adjust');
     });
 
-    // ─── Diagnostic Module ────────────────────────────────────────
+    // ─── Diagnostic Module ────────────────────────────────────────────────────
     Route::middleware(['module:diagnostic'])->prefix('diagnostic')->name('diagnostic.')->group(function () {
         Route::resource('test-orders', \App\Http\Controllers\Tenant\Diagnostic\TestOrderController::class)
             ->middleware('permission:diagnostic-create-order');
@@ -113,7 +172,7 @@ Route::middleware(['tenancy', 'auth', 'verified'])->group(function () {
             ->name('results.report');
     });
 
-    // ─── Hospital Module ──────────────────────────────────────────
+    // ─── Hospital Module ──────────────────────────────────────────────────────
     Route::middleware(['module:hospital'])->prefix('hospital')->name('hospital.')->group(function () {
         Route::resource('doctors', \App\Http\Controllers\Tenant\Hospital\DoctorController::class)
             ->middleware('permission:hospital-manage-doctors');
@@ -137,7 +196,7 @@ Route::middleware(['tenancy', 'auth', 'verified'])->group(function () {
             ->middleware('permission:hospital-insurance');
     });
 
-    // ─── Accounts Module ──────────────────────────────────────────
+    // ─── Accounts Module ──────────────────────────────────────────────────────
     Route::middleware(['module:accounts'])->prefix('accounts')->name('accounts.')->group(function () {
         Route::resource('chart-of-accounts', \App\Http\Controllers\Tenant\Accounts\ChartOfAccountsController::class)
             ->middleware('permission:accounts-manage');
@@ -151,20 +210,6 @@ Route::middleware(['tenancy', 'auth', 'verified'])->group(function () {
             ->middleware('permission:accounts-manage-dues');
     });
 
-    // ─── Core (always) ────────────────────────────────────────────
-    Route::resource('patients', \App\Http\Controllers\Tenant\Core\PatientController::class)
-        ->middleware('permission:manage-patients');
-    Route::resource('users', \App\Http\Controllers\Tenant\Core\UserController::class)
-        ->middleware('permission:manage-users');
-    Route::resource('roles', \App\Http\Controllers\Tenant\Core\RoleController::class)
-        ->middleware('permission:manage-roles');
-    Route::get('settings', [\App\Http\Controllers\Tenant\Core\SettingsController::class, 'index'])
-        ->middleware('permission:manage-settings')->name('settings.index');
-    Route::put('settings', [\App\Http\Controllers\Tenant\Core\SettingsController::class, 'update'])
-        ->middleware('permission:manage-settings')->name('settings.update');
-    Route::get('audit-log', [\App\Http\Controllers\Tenant\Core\AuditLogController::class, 'index'])
-        ->middleware('permission:view-audit-log')->name('audit-log');
-
-    // Catch-all SPA fallback
+    // ── Catch-all SPA Fallback ────────────────────────────────────────────────
     Route::get('/{any}', fn() => inertia('Tenant/NotFound'))->where('any', '.*')->name('spa');
 });

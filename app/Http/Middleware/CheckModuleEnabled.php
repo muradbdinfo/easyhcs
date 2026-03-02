@@ -2,34 +2,28 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant\Setting;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckModuleEnabled
 {
+    private const ALWAYS_ACTIVE = ['core', 'accounts'];
+
     public function handle(Request $request, Closure $next, string $module): Response
     {
-        // Get tenant (set by tenancy bootstrapper)
-        $tenant = tenancy()->tenant;
-
-        if (!$tenant) {
-            abort(403, 'Tenant context not found.');
+        if (in_array($module, self::ALWAYS_ACTIVE)) {
+            return $next($request);
         }
 
-        $enabledModules = $tenant->getEnabledModules();
+        $modules = Setting::get('modules_enabled', []);
 
-        if (!in_array($module, $enabledModules)) {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'message' => "Module '{$module}' is not enabled on your current plan.",
-                    'module'  => $module,
-                    'upgrade' => true,
-                ], 403);
-            }
-
-            // Inertia redirect to module locked page
-            return redirect()->route('module.locked', ['module' => $module]);
+        if (!in_array($module, (array) $modules)) {
+            return response()->json([
+                'message' => "Module '{$module}' is not enabled for this tenant.",
+                'module'  => $module,
+            ], 403);
         }
 
         return $next($request);

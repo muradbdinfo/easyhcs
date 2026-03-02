@@ -9,22 +9,20 @@ use Inertia\Inertia;
 
 class SubscriptionController extends Controller
 {
-    public function index(Request $request)
-    {
-        $subscriptions = Subscription::with(['tenant', 'plan'])
-            ->when($request->search, fn($q, $s) =>
-                $q->whereHas('tenant', fn($t) => $t->where('name', 'like', "%{$s}%"))
+   public function index(Request $request)
+{
+    $subs = Subscription::with(['tenant', 'plan'])
+        ->when($request->search, fn($q, $s) =>
+            $q->whereHas('tenant', fn($q) =>
+                $q->where('business_name', 'like', "%{$s}%")
             )
-            ->when($request->status, fn($q, $s) => $q->where('status', $s))
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
+        )
+        ->when($request->status, fn($q, $s) => $q->where('status', $s))
+        ->latest()
+        ->paginate(20);
 
-        return Inertia::render('Admin/Subscriptions/Index', [
-            'subscriptions' => $subscriptions,
-            'filters' => $request->only('search', 'status'),
-        ]);
-    }
+    return response()->json($subs);
+}
 
     public function show(Subscription $subscription)
     {

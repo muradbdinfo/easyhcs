@@ -43,11 +43,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Aliases
         $middleware->alias([
-            'super-admin'    => \App\Http\Middleware\SuperAdminMiddleware::class,
-            'tenant'         => \App\Http\Middleware\CheckModuleEnabled::class,
-            'two-factor'          => \App\Http\Middleware\RequiresTwoFactor::class,
-            'tenancy'        => \App\Http\Middleware\InitializeTenancyByDomain::class,
-            'tenant.auth'    => \App\Http\Middleware\TenantAuthMiddleware::class,
+                                'super-admin'    => \App\Http\Middleware\SuperAdminMiddleware::class,
+                                'tenant'         => \App\Http\Middleware\CheckModuleEnabled::class,
+                                'two-factor'          => \App\Http\Middleware\RequiresTwoFactor::class,
+                                'tenancy'        => \App\Http\Middleware\InitializeTenancyByDomain::class,
+                                'tenant.auth'    => \App\Http\Middleware\TenantAuthMiddleware::class,
+                                'tenant.auth'    => \App\Http\Middleware\TenantAuthenticate::class,
+                                'module.enabled' => \App\Http\Middleware\CheckModuleEnabled::class,
         ]);
 
         // Global middleware priority (tenancy before auth)

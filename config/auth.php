@@ -40,6 +40,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'tenant' => [
+    'driver'   => 'session',
+    'provider' => 'tenant_users',
+],
     ],
 
     /*
@@ -64,6 +68,11 @@ return [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
+
+        'tenant_users' => [
+    'driver' => 'eloquent',
+    'model'  => App\Models\Tenant\User::class,
+],
 
         // 'users' => [
         //     'driver' => 'database',
@@ -97,6 +106,14 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        'tenant_users' => [
+    'provider'  => 'tenant_users',
+    'table'     => 'password_reset_tokens',
+    'expire'    => 60,
+    'throttle'  => 60,
+],
+
     ],
 
     /*

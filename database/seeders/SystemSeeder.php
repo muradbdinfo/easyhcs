@@ -226,13 +226,13 @@ class SystemSeeder extends Seeder
             DB::table('users')->insert([
                 'name'              => 'EasyHCS Admin',
                 'email'             => 'admin@easyhcs.com',
-                'password'          => Hash::make('Admin@2026!'),
+                'password'          => Hash::make('password'),
                 'is_super_admin'    => true,
                 'email_verified_at' => now(),
                 'created_at'        => now(),
                 'updated_at'        => now(),
             ]);
-            $this->log('  Super admin created: admin@easyhcs.com / Admin@2026!');
+            $this->log('  Super admin created: admin@easyhcs.com / password');
         } else {
             $this->log('  Super admin already exists — skipped.');
         }
